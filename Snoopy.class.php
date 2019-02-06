@@ -1,6 +1,5 @@
 <?php
-
-/*************************************************
+ /*************************************************
  *
  * Snoopy - the PHP net client
  * Author: Monte Ohrt <monte@ohrt.com>
@@ -26,8 +25,14 @@
  * The latest version of Snoopy can be obtained from:
  * http://snoopy.sourceforge.net/
  *************************************************/
-class Snoopy
-{
+ /*************************************************
+ * Version: 2.0.1
+ * Author: Unknown Error <fehler.in.anwendung@gmail.com>
+ * Copyright (c): 2019, all rights reserved
+ *
+ * now support socket operation with ssl
+ *************************************************/
+class Snoopy {
     /**** Public variables ****/
 
     /* user definable vars */
@@ -40,12 +45,12 @@ class Snoopy
     var $proxy_user = ""; // proxy user to use
     var $proxy_pass = ""; // proxy password to use
 
-    var $agent = "Snoopy v2.0.0"; // agent we masquerade as
+    var $agent = "Snoopy v2.0.1"; // agent we masquerade as
     var $referer = ""; // referer info to pass
     var $cookies = array(); // array of cookies to pass
     // $cookies["username"]="joe";
     var $rawheaders = array(); // array of raw headers to send
-    // $rawheaders["Content-type"]="text/html";
+    //var $rawheaders["Content-type"]="text/html";
 
     var $maxredirs = 5; // http redirection depth maximum. 0 = disallow
     var $lastredirectaddr = ""; // contains address of last redirected address
@@ -70,7 +75,7 @@ class Snoopy
     var $response_code = ""; // response code returned from server
     var $headers = array(); // headers returned from server sent here
     var $maxlength = 500000; // max return data length (body)
-    var $read_timeout = 0; // timeout on read operations, in seconds
+    var $read_timeout = 100; // timeout on read operations, in seconds
     // supported only since PHP 4 Beta 4
     // set to 0 to disallow timeouts
     var $timed_out = false; // if a read operation timed out
@@ -80,7 +85,7 @@ class Snoopy
     // has permission to write to.
     // under Windows, this should be C:\temp
 
-    var $curl_path = false;
+    var $curl_path = "/usr/bin/curl ";//false;
     // deprecated, snoopy no longer uses curl for https requests,
     // but instead requires the openssl extension.
 
@@ -89,7 +94,7 @@ class Snoopy
 
     // file or directory with CA certificates to verify remote host with
     var $cafile;
-    var $capath;
+    var $capath = "/tmp";
 
     /**** Private variables ****/
 
@@ -105,9 +110,18 @@ class Snoopy
     var $_frameurls = array(); // frame src urls
     var $_framedepth = 0; // increments on frame depth
 
-    var $_isproxy = false; // set if using a proxy server
+    var $_isproxy = true; // set if using a proxy server
     var $_fp_timeout = 30; // timeout for socket connection
 
+	/*======================================================================*\
+	    Input:		$timeout	the timeout for socket operations
+        added by Unknown Error
+    \*======================================================================*/
+	function set_socket_timeout($timeout)
+	{
+		$this->_fp_timeout = $timeout;
+	}
+	
     /*======================================================================*\
         Function:	fetch
         Purpose:	fetch the contents of a web page
@@ -633,6 +647,10 @@ class Snoopy
             $headers .= "\r\n";
         }
         if (!empty($this->agent))
+            if(is_array($this->agent)) {
+	            $agent_str = $this->agent[0];
+	            $this->agent = $agent_str;
+            }
             $headers .= "User-Agent: " . $this->agent . "\r\n";
         if (!empty($this->accept))
             $headers .= "Accept: " . $this->accept . "\r\n";
@@ -830,8 +848,10 @@ class Snoopy
             $port = $this->proxy_port;
 
             if ($this->scheme == 'https') {
-                trigger_error("HTTPS connections over proxy are currently not supported", E_USER_ERROR);
-                exit;
+                //trigger_error("HTTPS connections over proxy are currently not supported", E_USER_ERROR);
+                //exit;
+	            $host = $this->host;
+	            $port = $this->port;
             }
         } else {
             $host = $this->host;
@@ -847,7 +867,9 @@ class Snoopy
             // verification (including name checks)
             if (isset($this->cafile) || isset($this->capath)) {
                 $context_opts['ssl'] = array(
-                    'verify_peer' => true,
+                    //'verify_peer' => true,
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
                     'CN_match' => $this->host,
                     'disable_compression' => true,
                 );
@@ -946,7 +968,7 @@ class Snoopy
                 break;
 
             case "multipart/form-data":
-                $this->_mime_boundary = "Snoopy" . md5(uniqid(microtime()));
+                $this->_mime_boundary = "Snoopy" . md5(uniqid(time()));
 
                 reset($formvars);
                 while (list($key, $val) = each($formvars)) {
